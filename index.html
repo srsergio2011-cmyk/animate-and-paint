@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Animate and paint</title>
+  <style>
+    :root { --panel: #171b24; --accent: #7c5cff; --line: #303645; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: #0d1017; color: white; font-family: system-ui, sans-serif; }
+    header { height: 76px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; background: var(--panel); border-bottom: 1px solid var(--line); }
+    h1 { margin: 0; font-size: 24px; }
+    .author { color: #b8bfd0; font-size: 14px; }
+    .app { display: grid; grid-template-columns: 250px 1fr; height: calc(100vh - 76px); }
+    aside { background: var(--panel); border-right: 1px solid var(--line); padding: 18px; overflow-y: auto; }
+    .tool { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    button { border: 1px solid var(--line); background: #222736; color: white; border-radius: 8px; padding: 10px; cursor: pointer; }
+    button:hover, button.active { background: var(--accent); border-color: var(--accent); }
+    label { display: block; margin: 18px 0 8px; color: #cbd1df; }
+    input[type="range"] { width: 100%; }
+    input[type="color"] { width: 100%; height: 44px; border: 0; padding: 2px; background: transparent; cursor: pointer; }
+    .canvas-wrap { position: relative; display: grid; place-items: center; padding: 24px; min-width: 0; }
+    canvas { width: 100%; height: 100%; max-width: 1200px; max-height: 760px; background: white; border-radius: 6px; box-shadow: 0 10px 30px #0008; cursor: crosshair; touch-action: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Animate and paint</h1>
+    <div class="author">autor: darklord523</div>
+  </header>
+  <main class="app">
+    <aside>
+      <div class="tool">
+        <button id="pencil" class="active">✏️ Pincel</button>
+        <button id="eraser">🧽 Goma</button>
+        <button id="undo">↶ Deshacer</button>
+        <button id="clear">🗑️ Limpiar</button>
+      </div>
+      <label for="color">Color</label>
+      <input id="color" type="color" value="#7c5cff">
+      <label for="size">Tamaño: <span id="sizeValue">8</span> px</label>
+      <input id="size" type="range" min="1" max="60" value="8">
+      <button id="download" style="width:100%; margin-top:18px">⬇️ Descargar PNG</button>
+    </aside>
+    <section class="canvas-wrap"><canvas id="canvas"></canvas></section>
+  </main>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const color = document.getElementById('color');
+    const size = document.getElementById('size');
+    const sizeValue = document.getElementById('sizeValue');
+    let drawing = false, tool = 'pencil', history = [];
+
+    function resize() {
+      const rect = canvas.getBoundingClientRect();
+      const snapshot = canvas.width ? canvas.toDataURL() : null;
+      canvas.width = Math.round(rect.width * devicePixelRatio);
+      canvas.height = Math.round(rect.height * devicePixelRatio);
+      ctx.scale(devicePixelRatio, devicePixelRatio);
+      ctx.fillStyle = 'white'; ctx.fillRect(0, 0, rect.width, rect.height);
+      if (snapshot) {
+        const image = new Image();
+        image.onload = () => ctx.drawImage(image, 0, 0, rect.width, rect.height);
+        image.src = snapshot;
+      }
+    }
+
+    function save() { history.push(canvas.toDataURL()); if (history.length > 30) history.shift(); }
+    function position(event) {
+      const rect = canvas.getBoundingClientRect();
+      return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    }
+
+    canvas.addEventListener('pointerdown', event => {
+      drawing = true; save(); canvas.setPointerCapture(event.pointerId);
+      const p = position(event); ctx.beginPath(); ctx.moveTo(p.x, p.y);
+    });
+    canvas.addEventListener('pointermove', event => {
+      if (!drawing) return;
+      const p = position(event);
+      ctx.lineTo(p.x, p.y); ctx.strokeStyle = tool === 'eraser' ? 'white' : color.value;
+      ctx.lineWidth = tool === 'eraser' ? size.value * 2 : size.value;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+    });
+    canvas.addEventListener('pointerup', () => drawing = false);
+    canvas.addEventListener('pointerleave', () => drawing = false);
+
+    document.getElementById('pencil').onclick = () => setTool('pencil');
+    document.getElementById('eraser').onclick = () => setTool('eraser');
+    function setTool(next) {
+      tool = next;
+      document.querySelectorAll('#pencil,#eraser').forEach(b => b.classList.remove('active'));
+      document.getElementById(next).classList.add('active');
+    }
+    size.oninput = () => sizeValue.textContent = size.value;
+    document.getElementById('undo').onclick = () => {
+      const previous = history.pop();
+      if (!previous) return;
+      const image = new Image(); image.onload = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.drawImage(image, 0, 0, canvas.clientWidth, canvas.clientHeight);
+      }; image.src = previous;
+    };
+    document.getElementById('clear').onclick = () => {
+      save(); ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+    };
+    document.getElementById('download').onclick = () => {
+      const link = document.createElement('a'); link.download = 'animate-and-paint.png'; link.href = canvas.toDataURL('image/png'); link.click();
+    };
+
+    new ResizeObserver(resize).observe(canvas);
+  </script>
+</body>
+</html>
